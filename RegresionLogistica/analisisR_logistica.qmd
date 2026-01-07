@@ -1,0 +1,323 @@
+---
+title: "Tarea6"
+format: html
+editor: visual
+---
+
+## **Regresión logística** 
+
+**Factores de riesgo de diabetes tipo 2 en mujeres de una comunidad aborigen** 
+
+Introducción 
+
+En la actualidad la mayoría de las poblaciones aborígenes tienen un estilo de vida occidentalizado, caracterizado por una dieta compuesta total o parcialmente por carbohidratos refinados, alto contenido de grasas saturadas y bajo contenido de fibra dietética, muy diferente de los alimentos tradicionales como los productos agrícolas, con hábitos sedentarios y disminución de la actividad física. En estas circunstancias, algunas de estas poblaciones han desarrollado una alta prevalencia de obesidad y diabetes tipo 2. El objetivo de este estudio fue estimar la prevalencia de diabetes tipo 2 y obesidad en mujeres de la comunidad Pima e identificar variables clínicas asociadas a la presencia de diabetes. 
+
+Metodología 
+
+La población objetivo de este estudio transversal es la población femenina Pima adulta (\>20 años). Se registraron distintas variables clínicas.  
+
+La base de datos original en el paquete faraway (pima). 
+
+Sobre esa base en la clase 1 se corrigieron: 
+
+-   Por error los datos faltantes en las variables glucose , diastolic , triceps, insulin, bmi se registraron como “0” y se recodificaron como “NA” 
+-   Se reemplazó un valor de triceps de 99 (no plausible) como “NA” 
+-   Se generó la variable cat_peso según índice de masa corporal (BMI). Si bmi está entre 25  a \<30 se considera  con sobrepeso. Si su IMC es 30.0 o superior, obesidad.  
+-   Se renombró la variable diabetes a diabetes_gen.  
+-   Se generó la variable diabetes a partir de test (sí = 1, no=0) 
+
+Los datos corregidos se encuentran en el archivo pima.csv. 
+
+Diccionario de variables:  
+
+-   embarazos: Número de embarazos a término 
+
+-   glucosa: Concentración de glucosa plasmática a las 2 horas en una prueba de tolerancia oral a la glucosa (mg/dL)  
+
+-   diastólica: Presión arterial diastólica (mm Hg) 
+
+-   triceps : Grosor del pliegue cutáneo del tríceps (mm) 
+
+-   insulina: insulina sérica de 2 horas (mu U/ml) 
+
+-   imc: Índice de masa corporal (IMC) (peso en kg/altura2 en m2) 
+
+-   pedigree: función de pedigree de diabetes. Es un puntaje que expresa la predisposición a padecer diabetes a partir de la historia familiar. 
+
+-   edad : Edad (años) 
+
+-   diabetes: si la paciente posee o no diabetes (codificado 0 si es negativo, 1 si es positivo) 
+
+```{r}
+library(faraway)
+library(visdat) 
+library(arsenal)
+library(ggplot2)
+library(GGally)
+library(ggeffects)
+library(rgl)
+library(pROC)
+library(car)
+library(sjPlot) 
+library(performance) 
+library(dplyr)
+library(naniar)
+```
+
+1.  Completar el siguiente párrafo: 
+
+Participaron del estudio 768 pacientes, con un promedio de edad de 33,24 años. La prevalencia de diabetes fue de 34.89 % y la de obesidad, de 61.45%.  
+
+```{r}
+total <- nrow(bd)             # total de pacientes
+summary(bd)                   # promedio de edad
+mean(pima$age)
+
+# prevalencia de diabetes
+totaldiabetes<-(sum(bd$diabetes == "si"))
+porcentaje_diabetes <- (totaldiabetes/total)*100
+porcentaje_diabetes
+
+# prevalencia de obesidad
+totalobesidad<-(sum(bd$cat_peso == "obesidad", na.rm = TRUE))
+porcentaje_obesidad <- (totalobesidad/total)*100
+porcentaje_obesidad
+```
+
+2.  Presente un gráfico para visualizar los datos faltantes, ordenando las variables según su porcentaje de NA. Comente. 
+
+```{r}
+vis_miss(bd, sort_miss = TRUE) + 
+  ggtitle("Visualización de datos faltantes ordenados por porcentaje de NA")
+
+```
+
+3.  Ajuste una regresión logística múltiple con los casos completos para predecir la presencia de diabetes en función de las variables embarazos+glucosa+diastolica+pedigree+edad+cat_peso. No utilice como VE las variables insulina y triceps, debido a que presentan un alto porcentaje de datos faltantes. 
+
+supone una perdida perder la insulina pero no triceps, porque hay otra variable que explica casi lo mismo.
+
+```{r}
+bd <- bd %>% select(-triceps, -insulin, -bmi)
+View(bd)
+head(bd)
+bd <- bd[complete.cases(bd), ] 
+bd$diabetes <- as.factor(bd$diabetes)
+View(bd)
+
+m1 <- glm(diabetes ~ pregnant+glucose+diastolic+diabetes_gen+age+cat_peso, data = bd, family = binomial) 
+```
+
+4.  ¿Existe colinealidad entre las variables explicativas? ¿Entre cuáles? 
+
+```{r}
+ggpairs(bd)
+vif(m1)
+```
+
+edad - embarazo = 0.544 –\> pareciera que edad y cantidad de embarazos están un poco relacionadas.
+
+```         
+              GVIF Df GVIF^(1/(2*Df))
+pregnant  1.441596  1        1.200665
+glucose   1.045738  1        1.022614
+diastolic 1.226178  1        1.107329
+bmi       2.125982  1        1.458075
+age       1.561601  1        1.249640
+cat_peso  1.958786  2        1.183033
+```
+
+→ Se evaluó la colinealidad entre variables mediante VIF. Todos los valores se ubicaron entre 1 y 2, lo que indica ausencia de colinealidad relevante entre las variables. Las VE son independientes 
+
+5.  Plantee un modelo de regresión aditivo (sin interacciones) con las variables explicativas independientes (M1).  
+
+```{r}
+bd$diabetes <- as.factor(bd$diabetes)
+m1 <- glm(diabetes ~ pregnant + glucose + diastolic + diabetes_gen + age + cat_peso, data = bd, family = binomial)
+```
+
+6.  Ajuste modelos reducidos hasta obtener uno con todos los coeficientes significativos (MF).  
+
+```{r}
+summary(m1)
+summary(m1)$coefficients[, 4]
+pvalores <- as.list(summary(m1)$coefficients[, 4])
+pvalores
+```
+
+```         
+Coefficients:
+                   Estimate Std. Error z value Pr(>|z|)    
+(Intercept)       -8.117239   0.840591  -9.657  < 2e-16 ***
+pregnant           0.104382   0.033446   3.121 0.001803 ** 
+glucose            0.035159   0.003631   9.683  < 2e-16 ***
+diastolic         -0.001952   0.008505  -0.230 0.818467    
+diabetes_gen       1.028259   0.305201   3.369 0.000754 ***
+age                0.015616   0.010049   1.554 0.120186    
+cat_pesoobesidad   2.132137   0.442750   4.816 1.47e-06 ***
+cat_pesosobrepeso  1.197515   0.473291   2.530 0.011400 *  
+```
+
+```{r}
+m_sin_diastolic <- glm(diabetes ~ pregnant + glucose + diabetes_gen + age + cat_peso, data = bd, family = binomial)
+summary(m_sin_diastolic)
+```
+
+```         
+Coefficients:
+                   Estimate Std. Error z value Pr(>|z|)    
+(Intercept)       -8.223778   0.702903 -11.700  < 2e-16 ***
+pregnant           0.104249   0.033432   3.118  0.00182 ** 
+glucose            0.035063   0.003603   9.730  < 2e-16 ***
+diabetes_gen       1.030135   0.304932   3.378  0.00073 ***
+age                0.015070   0.009756   1.545  0.12245    
+cat_pesoobesidad   2.122998   0.440682   4.818 1.45e-06 ***
+cat_pesosobrepeso  1.198110   0.473107   2.532  0.01133 *  
+```
+
+```{r}
+m_sin_edad <- glm(diabetes ~ pregnant + glucose + diabetes_gen + cat_peso, data = bd, family = binomial)
+summary(m_sin_edad)
+```
+
+```         
+Coefficients:
+                   Estimate Std. Error z value Pr(>|z|)    
+(Intercept)       -7.914349   0.664942 -11.902  < 2e-16 ***
+pregnant           0.132725   0.028150   4.715 2.42e-06 ***
+glucose            0.036101   0.003552  10.163  < 2e-16 ***
+diabetes_gen       1.031637   0.303981   3.394 0.000689 ***
+cat_pesoobesidad   2.077662   0.438297   4.740 2.13e-06 ***
+cat_pesosobrepeso  1.175451   0.471220   2.494 0.012614 *  
+```
+
+7.  ¿Cómo se relaciona la probabilidad de presentar diabetes con las VE significativas? 
+
+```{r}
+bd <- bd %>% select(-diastolic, -age)
+mf <- glm(diabetes ~ pregnant + glucose + diabetes_gen + cat_peso, data = bd, family = binomial)
+summary(mf)
+coef(mf)
+exp(coef(mf))
+```
+
+Viendo los beta solo puedo ver el signo, unidades dist  
+
+-   **Glucosa (β = 0.03665):** Es un efecto positivo: a mayor glucosa, mayor probabilidad de diabetes. 
+-   **Predisposición genética (β = 1.04108)** Es el predictor con mayor impacto. Cuanto mayor es el pedigree, mayor probabilidad de diabetes. 
+-   Pregnant: Cuanto mayor es el numero de embarazos, mayor probabilidad de diabetes.  
+-   Categorias de peso: personas con sobrepeso tienen mayor prob de diabetes que las normales (dif de medias positiva 1.23),personas con obesidad tienen una prob aun mayor (dif 2.17). las categorias se comparan con la de referencia (es la que no aparece en el summary) 
+
+Factores de riesgo para diabetes: cant de embarazos, predisposicion genetica, edad, glucosa, sobrepeso y obesidad 
+
+8.  Escriba la ecuación para predecir la probabilidad de que una paciente presente diabetes en función de las VE seleccionadas. 
+
+Ecuación para predecir la probabilidad de que una paciente presente diabetes en función de las VE seleccionadas. 
+
+log(1−P(diabetes=1)P(diabetes=1)) = -8.5 + 0.12 \* pregnant + 0.03 \* glucose + 0.04 \* bmi + 1.65 \* cat_pesoobesidad + 1.04 \* cat_pesosobrepeso
+
+9.  9\. Visualice mediante gráficos el modelo final. 
+
+```{r}
+
+# datos de la tabla pero graficamente
+plot_model(mf, show.values = TRUE)
+
+# tabla con datos
+tab_model(mf)
+
+# comparación de variables de a 2, pero salen todos los graficos juntos
+plot_model(mf, type="pred")
+
+# comparacion de variables de a 2, pero vos elegis el grafico que queres que aparezca.
+pred_cat <- ggpredict(mf, terms = "cat_peso")   # probabilidades y IC por categoría 
+plot(pred_cat) + 
+  labs(title = "Probabilidad de diabetes según categoría de peso", 
+       x = "cat peso", y = "probabilidad de diabetes ")  
+```
+
+10. Evalúe la capacidad predictiva de MF. Para ello, represente la curva ROC del modelo y calcule el AUC. Concluya. 
+
+```{r}
+#Evaluando capacidad predictiva
+#calculamos las probabilidades predichas por el modelo para cada caso
+bd$pred.prob <- predict(mf, type="response")
+summary(bd$pred.prob)
+
+#curva ROC 
+myroc<-roc(diabetes ~ pred.prob  ,  auc=TRUE, ci=TRUE, plot=TRUE, data = bd)
+myroc
+plot(myroc, print.auc=TRUE, print.thres=TRUE)
+
+#Veamos distintos puntos puntos de corte que podemos elegir para discriminar la predicción (DBT si o no):
+coords(myroc)
+
+```
+
+El **AUC** representa la probabilidad de que el modelo clasifique correctamente una observación positiva como más probable que una negativa. Es una medida de **qué tan bien tu modelo distingue entre las clases positivas y negativas** (por ejemplo, entre "1" y "0").
+
+| **Valor de AUC** | **Interpretación** |
+|------------------------------------|------------------------------------|
+| **0.5** | El modelo no tiene capacidad de discriminación. Es igual que lanzar una moneda (modelo sin poder predictivo). |
+| **0.6 - 0.7** | Discriminación pobre, pero ligeramente mejor que el azar. |
+| **0.7 - 0.8** | Discriminación aceptable. Modelo razonablemente bueno. |
+| **0.8 - 0.9** | Muy buen poder de discriminación. |
+| **0.9 - 1.0** | Excelente discriminación. Puede indicar un modelo muy preciso o sobreajustado. |
+| **1.0** | Modelo perfecto. Puede sonar bien, pero a veces es sospechoso (riesgo de **overfitting** si no se valida bien). |
+| **\< 0.5** | El modelo está peor que el azar; está aprendiendo al revés (invirtiendo clases). A veces indica un problema grave con los datos o el modelo. |
+
+11. Determine el punto de corte óptimo (threshold). Clasifique a las pacientes en función de dicho corte en con/sin diabetes.   
+
+threshold = 0.363
+
+```{r}
+bd$pred_class <- ifelse(bd$pred.prob >= 0.346, 1, 0)
+nrow(bd)
+View(bd)
+head(bd)
+```
+
+12. Construya la matriz de confusión. Calcule: 
+
+```{r}
+#matriz de confusion
+mat_conf=table(bd$pred_class , bd$diabetes)
+
+# Añadir nombres a las dimensiones
+dimnames(mat_conf) <- list("Predicho" = c("No", "Sí"), 
+                           "Observado" = c("No", "Sí"))
+mat_conf
+
+```
+
+1.  Tasa de error de clasificación y accuracy  
+
+```{r}
+error_de_clasificacion <- sum(mat_conf) - sum(diag(mat_conf))
+error_de_clasificacion
+accuracy <- sum(diag(mat_conf))
+accuracy
+```
+
+(102+66) / 724 = 23% mal clasificado 
+
+=\> Probabilidad de que clasifique bien es 77% 
+
+2.  Sensibilidad y especificidad   
+
+```{r}
+coords(myroc, x = "best", best.method = "youden", transpose = FALSE)
+```
+
+sensibilidad: de los que si desarrollaron diabetes, el modelo prdijo que iba a desarrollarlo.
+
+especificidad: de los que no tuvieron diabtes, efectivamente el modelo predijo que no iba a desarollar diabetes
+
+3.  Tasa de falsos positivos y falsos negativos  
+
+True positives (si (observado)-si (predicho)) = 207
+
+False positives (no (observado) - si (predicho) = 139
+
+True negatives (no (observado) - no (predicho) = 349
+
+False negatives (si (observado) - no (predicho) = 57

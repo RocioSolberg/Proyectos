@@ -1,0 +1,292 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+## Caracterización de vinos tintos a partir de variables fisicoquímicas
+
+Análisis de componentes principales
+
+\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+
+Siguiendo con el caso del TP anterior (tinto.csv) interesa entender cuáles son las dimensiones que explican la variabilidad en estos vinos.
+
+Consignas
+
+```{r}
+
+library(factoextra)
+library(visdat) 
+library(GGally) 
+library(arsenal) 
+library(pheatmap)
+library(tidyr)
+library(dplyr)
+library(fmsb)
+library(faraway)
+library(visdat) 
+library(arsenal)
+library(ggplot2)
+library(GGally)
+library(ggeffects)
+library(rgl)
+library(pROC)
+library(car)
+library(sjPlot) 
+library(performance)
+```
+
+1\. Utilizando exclusivamente las variables fisicoquímicas, estandarice los datos y aplique un un análisis de componentes principales.
+
+```{r}
+bd2 <- bd
+bd <- bd[,-12] # saco calidad, me quedo con las fisicoquímicas.
+
+#1. Descriptiva uni y bivariada, outliers
+summary(bd)
+vis_miss(bd)
+ggpairs(bd)
+
+
+# 2. Estandarización 
+z <- scale(bd)
+summary(z)
+
+# Efectuamos el PCA 
+res.pca <- prcomp(bd, center = TRUE, scale. = TRUE) # ya escalado
+res.pca
+
+```
+
+```         
+                             PC1          PC2         PC3          PC4         PC5         PC6         PC7         PC8          PC9        PC10         PC11
+acidez_fija           0.48931422  0.110502738 -0.12330157  0.229617370 -0.08261366 -0.10147858  0.35022736 -0.17759545 -0.194020908  0.24952314 -0.639691452
+acidez_volatil       -0.23858436 -0.274930480 -0.44996253 -0.078959783  0.21873452 -0.41144893  0.53373510 -0.07877531  0.129110301 -0.36592473 -0.002388597
+acido_citrico         0.46363166  0.151791356  0.23824707  0.079418256 -0.05857268 -0.06959338 -0.10549701 -0.37751558  0.381449669 -0.62167708  0.070910304
+azucares_residuales   0.14610715 -0.272080238  0.10128338  0.372792562  0.73214429 -0.04915555 -0.29066341  0.29984469 -0.007522949 -0.09287208 -0.184029964
+cloruros              0.21224658 -0.148051555 -0.09261383 -0.666194756  0.24650090 -0.30433857 -0.37041337 -0.35700936 -0.111338666  0.21767112 -0.053065322
+dioxido_azufre_libre -0.03615752 -0.513566812  0.42879287  0.043537818 -0.15915198  0.01400021  0.11659611 -0.20478050 -0.635405218 -0.24848326  0.051420865
+dioxido_azufre_total  0.02357485 -0.569486959  0.32241450  0.034577115 -0.22246456 -0.13630755  0.09366237  0.01903597  0.592115893  0.37075027 -0.068701598
+densidad              0.39535301 -0.233575490 -0.33887135  0.174499758  0.15707671  0.39115230  0.17048116 -0.23922267 -0.020718675  0.23999012  0.567331898
+pH                   -0.43851962 -0.006710793  0.05769735  0.003787746  0.26752977  0.52211645  0.02513762 -0.56139075  0.167745886  0.01096960 -0.340710903
+sulfatos              0.24292133  0.037553916  0.27978615 -0.550872362  0.22596222  0.38126343  0.44746911  0.37460432  0.058367062 -0.11232046 -0.069555381
+alcohol              -0.11323206  0.386180959  0.47167322  0.122181088  0.35068141 -0.36164504  0.32765090 -0.21762556 -0.037603106  0.30301450  0.314525906
+```
+
+summary: no hay NAs
+
+2\. Evalúe cuánta variabilidad explica cada CP. Efectúe un gráfico de sedimentación.
+
+```{r}
+#varianza explicada
+summary(res.pca)          # varianza explicada: variabilidad que explica cada CP
+fviz_eig(res.pca)                # scree plot por default 10 
+fviz_eig(res.pca, ncp = 11) # scree plot muestra hasta 11. 
+```
+
+-   variabilidad explicada por cada CP:
+
+El componente principal PC1 explica el 28.17 % de la variabilidad total del conjunto de datos, mientras que PC2 aporta un 17.51 % adicional. \
+En conjunto, PC1 y PC2 concentran el 45.68 % de la información original. \
+Al considerar los primeros tres componentes (PC1–PC3), se alcanza un 59.78 % de varianza explicada, y con los primeros cuatro se supera el 70 %. 
+
+```         
+                          PC1    PC2    PC3    PC4     PC5     PC6     PC7     PC8   
+Standard deviation     1.7604 1.3878 1.2452 1.1015 0.97943 0.81216 0.76406 0.65035 0
+Proportion of Variance 0.2817 0.1751 0.1410 0.1103 0.08721 0.05996 0.05307 0.03845 0
+Cumulative Proportion  0.2817 0.4568 0.5978 0.7081 0.79528 0.85525 0.90832 0.94677 0
+```
+
+-   Gráfico de sedimentación
+
+![](images/clipboard-706606294.png){width="491"}
+
+3\. ¿Cuántos componentes aconseja retener? ¿Qué porcentaje de la variabilidad total explican?
+
+-   3 componentes = 59.78%.
+
+Al ver el grafico se ve que la caida de pendiente mayor es del 1 al 2. no conviene tener solo uno. el mayor balance se encuentra entre 2 y 3, que aunque no explican muchisima variabilidad, siguen siendo pocos CPS.
+
+El codo es el cambio de pendiente. De 1 a 2 se observa. Ese es un criterio. Con 4 ya no puedo visualizar. A veces ni llega a explicar el 50% de la variabilidad, descriptivo.  
+
+Otro criterio: retener variables que tengan desvío estándar \> 1. Ej comp 1 es 1.7, comp 5 menos que 1, es menor que usar una de las variables originales. Usando ese criterio usaría hasta 4. Entonces 2 es el mínimo, y en este caso el máximo es el 4.  
+
+4\. ¿Con qué variables está asociado el CP1? ¿De qué manera?
+
+```{r}
+#visualizamos variables
+res.pca$rotation   # loadings
+round(res.pca$rotation,3) # redondear
+
+
+# obtener el coef de correlacion de cada variable con cada CP: 
+eig <- res.pca$sdev^2 
+loadings <- res.pca$rotation 
+correlations <- sweep(loadings, 2, sqrt(eig), FUN = "*") 
+round(correlations, 3) 
+```
+
+-   acidez_fija: 0.489 (positivo)
+
+-   acido_citrico: 0.463 (positivo)
+
+-   pH = -0.43 (negativo)
+
+El CP1 está muy relacionado principalmente con 3 variables: acidez_fija, acido_citrico y pH. Claramente el CP1 está concentrado en la acidez del vino, por eso acidez_fija y acido_citrico tienen un peso positivo y por eso mismo el pH tiene un peso negativo, porque cuanto más ácida es una solución, más bajo es el pH.
+
+5\. ¿Con qué variables está asociado el CP2? ¿De qué manera?
+
+-   dioxido_azufre_total = -0.569 (negativo)
+
+-   dioxido_azufre_libre = -0.513 (negativo)
+
+-   alcohol = 0.38 (positivo)
+
+6\. En base a los ítems 4 y 5, proponga un nombre interpretativo para cada componente que refleje el tipo de gradiente o dimensión que representa.
+
+-   CP1: gradiente de acidez
+
+-   CP2: azufre - alcohol
+
+PC1 Puede ser un gradiente de acidez, ya que está asociado a los componentes de acidez positivamente y pH negativamente. Cuanto mayor sea la acidez de un vino y por lo tanto menor su pH, y mayor densidad mas a la derecha estará (mayor puntaje en CP1). el CP1 es el que más explica la variación de la acidez.
+
+PC2 Es una dimensión de alcohol-azufre, ya que está asociado negativamente al azufre y positivamente al alcohol. Cuanto mayor sea el contenido de alcohol y menor SO2, mayor será en puntaje en el CP2. 
+
+7\. Represente gráficamente a las variables fisicoquímicas en un espacio definido por los dos primeros componentes.
+
+```{r}
+fviz_pca_var(res.pca) 
+fviz_pca_var(res.pca,
+             col.var = "contrib", # Color segun contribucion al CP
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE)     # evita superposicion
+```
+
+![](images/clipboard-461397100.png){width="462"}
+
+La clave está en que el gráfico está coloreado por contribución global a PC1 y PC2 combinados, no solo por el valor del loading en PC1. 
+
+Es decir, aunque dioxido_azufre_total no contribuya mucho a PC1, puede estar contribuyendo fuertemente a PC2 (o incluso a PC3 pero visualizado con escala relativa). 
+
+El gráfico muestra cómo las variables fisicoquímicas se agrupan según su relación con los dos primeros componentes principales. 
+
+Contrib:  \
+Acidez fija, ácido cítrico, densidad y sulfatos se asocian al CP1, que representa un eje de **acidez y estructura**, en oposición al pH, que refleja el sentido inverso de la acidez. \
+Alcohol se opone a dióxido de azufre y azúcares residuales, vinculados al CP2, que refleja un eje de **fermentación y contenido alcohólico**. 
+
+Por las dudas ignoramos los colores. Largo de las flechas y ángulos importan.  
+
+Comp1 se asocia de manera directa con ácido cítrico y acidez fija, y con la densidad, y de manera indirecta con el pH. 
+
+Comp2 ordena según grado de alcohol y dioxido de azufre, asociación indirecta fuerte con dioxido de azufre libre y total, y relación directa con alcohol.  
+
+Según chat los colores representan contribución a la variabilidad global de comp1 y comp2. Sulfatos, cloruros y azucares residuales en promedio son las que menos contribuyen (color celeste) 
+
+8\. Represente gráficamente a los vinos en un espacio definido por los dos primeros componentes.
+
+```{r}
+#Visualizamos casos
+res.pca$x          # scores
+
+# grafico de los casos
+fviz_pca_ind(res.pca,
+             col.ind = "cos2", # Color segun calidad de la representacion
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # evita superposicion
+)
+
+# saca el número de caso que es
+fviz_pca_ind( 
+  res.pca, axes = c(1, 2), # plano PC1–PC2 
+  label = "none", # oculta IDs (evita el quilombo) 
+  col.ind = "cos2", # color por calidad de representación 
+  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+  alpha.ind = 0.6, # transparencia de puntos 
+  pointsize = 1.5, # tamaño de puntos 
+  repel = FALSE, # no hace falta si no hay etiquetas 
+  title = "Vinos – Plano PC1–PC2" ) 
+```
+
+![](images/clipboard-3048079996.png){width="538"}
+
+![](images/clipboard-2404450413.png){width="568"}
+
+Qué esta midiendo coseno en este gráfico:  
+
+el cos² mide qué tan bien un individuo está representado en el plano de los componentes seleccionados (por ejemplo, PC1 y PC2). 
+
+Cuanto más cerca al cero son como término medio, los más alejados los puedo caracterizar en fc de mucho / poco. Los del medio más intermedio. Estos componentes no nos ayudan a caracterizar los vinos en azul (eso no es ni bueno ni malo, vemos que lo que genera mucha variabilidad es la acidez por ejemplo). Cuanto más alejado está más lo voy a poder caracterizar por sus características. 
+
+9\. Efectúe un biplot. Describa las características de los vinos ubicados en a) cuadrante superior izquierdo, b) cuadrante superior derecho, c) cuadrante inferior izquierdo, d) cuadrante inferior izquierdo.
+
+```{r}
+#Biplot
+fviz_pca_biplot(res.pca, repel = TRUE,
+                col.var = "#2E9FDF", #  color Variables
+                col.ind = "#696969"  #  color paises
+)
+
+# sacando que número de caso es.
+fviz_pca_biplot( res.pca, axes = c(1, 2), geom.ind = "point", label = "var", 
+                 col.ind = "grey75", alpha.ind = 0.5, pointsize = 1.1, col.var = "#2E9FDF", repel = TRUE, labelsize = 4 ) 
+```
+
+-   arriba a la izquierda: vinos poco acidos, alto contenido de alcohol, bajo contenido de dioxido de azufre y baja densidad.
+
+-   arriba a la derecha: vinos ácidos, con bajo pH, alto contenido de alcohol, bajo contenido de dioxido de azufre, alta densidad.
+
+-   abajo a la izquierda: alto pH, baja acidez, bajo contenido de alcohol, alto contenido de dioxido azufre, baja densidad
+
+-   abajo a la derecha: bajo pH, alta acidez, alta densidad, bajo contenido de alcohol, alto contenido de dioxido azufre.
+
+10\. Por otro lado, los investigadores desean relacionar las dimensiones fisicoquímicas con la calidad del vino. Para ello, utilizando la variable calidad, genere 3 categorías: baja, media y alta, que correspondan al primer, segundo y tercer tercil de la variable.
+
+```{r}
+cortes <- quantile(bd2$calidad, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE) 
+bd$calidad_tercil_valor <- cut( bd2$calidad, breaks = cortes, include.lowest = TRUE, labels = c("baja", "media", "alta") ) 
+
+# ver summary de las tres categorías
+tapply(bd2$calidad, bd$calidad_tercil_valor, summary) 
+
+```
+
+11\. En el gráfico de vinos (ítem 7) coloree a cada uno según su categoría de calidad. ¿Qué se observa?
+
+```{r}
+
+fviz_pca_ind(res.pca,
+             geom.ind = "point",       # solo puntos
+             col.ind = bd$calidad_tercil_valor,  # color según calidad categorizada
+             palette = c("#00AFBB", "#E7B800", "#FC4E07"),  # colores para baja, media, alta
+             addEllipses = TRUE,       # elipses por grupo
+             legend.title = "Calidad",
+             repel = TRUE)
+```
+
+Las tres calidades en los vinos tintos se relacionan de igual manera con la CP1, es decir, el nivel de acidez de un vino no parecería afectar a la calidad del vino. 
+
+Por otro lado, en cuanto alCP2, la calidad baja tiende a un CP2 negativo, mientras que la calidad alta tiende a un CP2 positivo. En consecuencia, una mayor calidad de vino se relaciona con un alto nivel de alcohol, y una baja calidad de vino se relaciona con un alto nivel de dióxido azufre. 
+
+Parece que la acidez no tiene nada que ver con la calidad, no quedaron muy bien diferenciados. Si tiene que ver el segundo componente, el alcohol y el dioxido de azufre. En el eje x solo en la  
+
+derecha no se superponen, no sé si conviene más o menos acidez para mejor calidad.  
+
+12\. Los investigadores desean saber si los grupos obtenidos por clustering se corresponden con patrones estructurales del PCA. Para ello, coloree en el gráfico de vinos (ítem 7) a cada uno según el cluster asignado en el TP anterior. Concluya.
+
+```{r}
+fviz_pca_ind(res.pca,
+             geom.ind = "point",             # solo puntos
+             col.ind = as.factor(bd$grupo),  # convertir grupo a factor para que sea categórico
+             palette = "jco",                # paleta de colores (podés cambiarla)
+             addEllipses = TRUE,             # elipses por grupo
+             legend.title = "Grupo",         # título de la leyenda
+             repel = TRUE                    # evita superposición de etiquetas
+)
+```
+
+Se reprodujo el clustering k-means (k=2) sobre las variables fisicoquímicas estandarizadas y se proyectaron los vinos en el plano PC1–PC2. Los clusters muestran separación principal sobre PC1 (eje de acidez/densidad): C1 se ubica hacia PC1 positivo (vinos más ácidos y densos, con tendencia a mayor alcohol y menor sulfito), mientras que C2 se concentra en PC1 negativo (vinos de menor acidez/densidad y pH más alto) 
+
+En este mapa se diferencian muy bien los clusters, ese es el punto, busca armar grupos homogéneos y distintos entre si. Pero con clustering no era directo las variables que explican los grupos 
+
+El segundo componente no tiene que ver con la separación de los clusters (ambos clusters por arriba y abajo). En cambio si están bien separados en cuanto al primer componente, cluster 1 en derecha mayormente y 2 en izquierda, acidez marca diferencia entre los clusters. 
